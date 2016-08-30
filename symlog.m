@@ -99,13 +99,20 @@ set(ax,[var,'Scale'],'linear')
 
 % Check for existing transformation
 userdata = get(ax,'UserData');
-if isfield(userdata,lower(var))
-    lastC = userdata.(lower(var));
+if isfield(userdata,'symlog') && isfield(userdata.symlog,lower(var))
+    lastC = userdata.symlog.(lower(var));
 else
     lastC = [];
 end
-userdata.(lower(var)) = C; % update with new value
+userdata.symlog.(lower(var)) = C; % update with new value
 set(ax,'UserData',userdata)
+
+
+if strcmpi(get(ax,[var,'LimMode']),'manual')
+    lim = get(ax,[var,'Lim']);
+    lim = sign(lim).*log10(1+abs(lim)/C);
+    set(ax,[var,'Lim'],lim)
+end
 
 % transform all lines in this plot
 lines = findobj(ax,'Type','line');
