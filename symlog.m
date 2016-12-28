@@ -114,16 +114,8 @@ if strcmpi(get(ax,[var,'LimMode']),'manual')
     set(ax,[var,'Lim'],lim)
 end
 
-% transform all lines in this plot
-lines = findobj(ax,'Type','line');
-for ii = 1:length(lines)
-    x = get(lines(ii),[var,'Data']);
-    if ~isempty(lastC) % undo previous transformation
-        x = sign(x).*lastC.*(10.^abs(x)-1);
-    end
-    x = sign(x).*log10(1+abs(x)/C);
-    set(lines(ii),[var,'Data'],x)
-end
+% transform all objects in this plot into logarithmic coordiates
+transform_graph_objects(ax, var, C, lastC);
 
 % transform axes labels to match
 t0 = max(abs(get(ax,[var,'Lim']))); % MATLAB's automatically-chosen limits
@@ -176,4 +168,18 @@ catch err
     else
         rethrow(err)
     end
+end
+
+
+
+function transform_graph_objects(ax, var, C, lastC)
+% transform all lines in this plot
+lines = findobj(ax,'Type','line');
+for ii = 1:length(lines)
+    x = get(lines(ii),[var,'Data']);
+    if ~isempty(lastC) % undo previous transformation
+        x = sign(x).*lastC.*(10.^abs(x)-1);
+    end
+    x = sign(x).*log10(1+abs(x)/C);
+    set(lines(ii),[var,'Data'],x)
 end
