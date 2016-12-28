@@ -183,3 +183,41 @@ for ii = 1:length(lines)
     x = sign(x).*log10(1+abs(x)/C);
     set(lines(ii),[var,'Data'],x)
 end
+
+% transform all Patches in this plot
+patches = findobj(ax,'Type','Patch');
+for ii = 1:length(patches)
+    x = get(patches(ii),[var,'Data']);
+    if ~isempty(lastC) % undo previous transformation
+        x = sign(x).*lastC.*(10.^abs(x)-1);
+    end
+    x = sign(x).*log10(1+abs(x)/C);
+    set(patches(ii),[var,'Data'],x)
+end
+
+% transform all Retangles in this plot
+rectangles = findobj(ax,'Type','Rectangle');
+for ii = 1:length(rectangles)
+    q = get(rectangles(ii),'Position');
+    switch var
+        case 'x'
+            x = [q(1) q(1)+q(3)];
+        case 'y'
+            x = [q(2) q(2)+q(4)];
+    end
+    if ~isempty(lastC) % undo previous transformation
+        x = sign(x).*lastC.*(10.^abs(x)-1);
+    end
+    x = sign(x).*log10(1+abs(x)/C);
+
+    switch var
+        case 'x'
+            q(1) = x(1);
+            q(3) = x(2)-x(1);
+        case 'y'
+            q(2) = x(1);
+            q(4) = x(2)-x(1);
+    end
+
+    set(rectangles(ii),'Position',q)
+end
