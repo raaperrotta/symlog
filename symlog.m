@@ -60,10 +60,14 @@ function symlog(varargin)
 %   Retrieved 6/28/2016 from
 %   https://kar.kent.ac.uk/32810/2/2012_Bi-symmetric-log-transformation_v5.pdf
 
+% enum values
+MODE_AUTO         = 0;
+MODE_USER_DEFINED = 1;
+scaling_mode = MODE_AUTO;
+
 % default values
 ax = []; % don't call gca unless needed
 var = 'xyz';
-C = 0;
 
 % user-specified values
 for ii = 1:length(varargin)
@@ -74,6 +78,7 @@ for ii = 1:length(varargin)
             var = varargin{ii};
         case {'double','single'}
             C = varargin{ii};
+            scaling_mode = MODE_USER_DEFINED;
         otherwise
             error('Don''t know what to do with input %d (type %s)!',ii,class(varargin{ii}))
     end
@@ -81,6 +86,25 @@ end
 
 if isempty(ax) % user did not specify a value
     ax = gca;
+end
+
+if scaling_mode == MODE_AUTO
+    [a,b] = find_minmax_value(ax, var);
+    element_scaler = 1;
+    if a> 0
+        C = log10(a);
+    elseif b < 0
+        C = log10(abs(b));
+    else
+        % This is tricker. The data crosses the axis, so it's not perfectly
+        % straightforward to determine what should be the minimum visible
+        % resolution.
+        C = ceil(log10(abs(a)) + log10(b))/7;
+
+        % Set the scaler to 2 to cover both positive and negative sides of
+        % the axis
+        element_scaler = 2;
+    end
 end
 
 % execute once per axis
@@ -121,7 +145,14 @@ transform_graph_objects(ax, var, C, lastC);
 t0 = max(abs(get(ax,[var,'Lim']))); % MATLAB's automatically-chosen limits
 t0 = sign(t0)*C*(10.^(abs(t0))-1);
 t0 = sign(t0).*log10(abs(t0));
-t0 = ceil(log10(C)):ceil(t0); % use C to determine lowest resolution
+
+numElements = (ceil(t0)-ceil(log10(C)))*element_scaler + 2; % +2 in order to handle 0 and max
+step =  ceil(numElements / 7);
+
+% use C to determine lowest resolution, and use ceiling to determine upper
+% resolution. Note that this upper integer resolution won't be respected
+% when panning and zooming.
+t0 = ceil(log10(C)):step:ceil(t0);
 t1 = 10.^t0;
 
 mt1 = nan(1,8*(length(t1))); % 8 minor ticks between each tick
@@ -158,18 +189,62 @@ for ii = 1:length(t0)
     end
 end
 set(ax,[var,'Tick'],t1,[var,'TickLabel'],lbl)
-set(ax,[var,'MinorTick'],'on',[var,'MinorGrid'],'on')
 rl = get(ax,[var,'Ruler']);
-try
-    set(rl,'MinorTick',mt1)
-catch err
-    if strcmp(err.identifier,'MATLAB:datatypes:onoffboolean:IncorrectValue')
-        set(rl,'MinorTickValues',mt1)
-    else
-        rethrow(err)
+
+% Only plot minor axis tick marks if the step size is equal to 1
+if (step == 1)
+    set(ax,[var,'MinorTick'],'on',[var,'MinorGrid'],'on')
+    try
+        set(rl,'MinorTick',mt1)
+    catch err
+        if strcmp(err.identifier,'MATLAB:datatypes:onoffboolean:IncorrectValue')
+            set(rl,'MinorTickValues',mt1)
+        else
+            rethrow(err)
+        end
     end
 end
 
+
+
+function [absolute_min,absolute_max] = find_minmax_value(ax, var)
+absolute_min = +Inf;
+absolute_max = -Inf;
+% transform all lines in this plot
+lines = findobj(ax,'Type','line');
+for ii = 1:length(lines)
+    x = get(lines(ii),[var,'Data']);
+
+    % Update the absolute min and max
+    absolute_min = min(min(x), absolute_min);
+    absolute_max = max(max(x), absolute_max);
+end
+
+% transform all Patches in this plot
+patches = findobj(ax,'Type','Patch');
+for ii = 1:length(patches)
+    x = get(patches(ii),[var,'Data']);
+
+    % Update the absolute min and max
+    absolute_min = min(min(x), absolute_min);
+    absolute_max = max(max(x), absolute_max);
+end
+
+% transform all Retangles in this plot
+rectangles = findobj(ax,'Type','Rectangle');
+for ii = 1:length(rectangles)
+    q = get(rectangles(ii),'Position');
+    switch var
+        case 'x'
+            x = [q(1) q(1)+q(3)];
+        case 'y'
+            x = [q(2) q(2)+q(4)];
+    end
+
+    % Update the absolute min and max
+    absolute_min = min(min(x(1)), absolute_min);
+    absolute_max = max(max(x(1)), absolute_max);
+end
 
 
 function transform_graph_objects(ax, var, C, lastC)
