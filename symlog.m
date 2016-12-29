@@ -198,12 +198,12 @@ end
 % transform all Retangles in this plot
 rectangles = findobj(ax,'Type','Rectangle');
 for ii = 1:length(rectangles)
-    q = get(rectangles(ii),'Position');
+    q = get(rectangles(ii),'Position'); % [x y w h]
     switch var
         case 'x'
-            x = [q(1) q(1)+q(3)];
+            x = [q(1) q(1)+q(3)]; % [x x+w]
         case 'y'
-            x = [q(2) q(2)+q(4)];
+            x = [q(2) q(2)+q(4)]; % [y y+h]
     end
     if ~isempty(lastC) % undo previous transformation
         x = sign(x).*lastC.*(10.^abs(x)-1);
