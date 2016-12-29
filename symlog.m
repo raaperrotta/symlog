@@ -4,56 +4,56 @@ function symlog(varargin)
 %   axes that handles negative values while maintaining continuity across
 %   zero. The transformation is defined in an article from the journal
 %   Measurement Science and Technology (Webber, 2012):
-% 
+%
 %     y = sign(x)*(log10(1+abs(x)/(10^C)))
-% 
+%
 %   where the scaling constant C determines the resolution of the data
 %   around zero. The smallest order of magnitude shown on either side of
 %   zero will be 10^ceil(C).
-% 
+%
 %   SYMLOG(ax=gca, var='xyz', C=0) applies this scaling to the axes named
 %   by letter in the specified axes using the default C of zero. Any of the
 %   inputs can be ommitted in which case the default values will be used.
-% 
+%
 %   SYMLOG uses the UserData attribute of the specified axes to record the
 %   current transformation applied so that subsequent calls to symlog
 %   operate on the original data rather than the newly transformed data.
-% 
+%
 % Example:
 %   x = linspace(-50,50,1e4+1);
 %   y1 = x;
 %   y2 = sin(x);
-% 
+%
 %   subplot(2,4,1)
 %   plot(x,y1,x,y2)
-% 
+%
 %   subplot(2,4,2)
 %   plot(x,y1,x,y2)
 %   set(gca,'XScale','log') % throws warning
-% 
+%
 %   subplot(2,4,3)
 %   plot(x,y1,x,y2)
 %   set(gca,'YScale','log') % throws warning
-% 
+%
 %   subplot(2,4,4)
 %   plot(x,y1,x,y2)
 %   set(gca,'XScale','log','YScale','log') % throws warning
-% 
+%
 %   subplot(2,4,6)
 %   plot(x,y1,x,y2)
 %   symlog('x')
-% 
+%
 %   s = subplot(2,4,7);
 %   plot(x,y1,x,y2)
 %   symlog(s,'y') % can but don't have to provide s.
-% 
+%
 %   subplot(2,4,8)
 %   plot(x,y1,x,y2)
 %   symlog() % no harm in letting symlog operate in z axis, too.
-% 
+%
 % Created by:
 %   Robert Perrotta
-% 
+%
 % Referencing:
 %   Webber, J. Beau W. "A Bi-Symmetric Log Transformation for Wide-Range
 %   Data." Measurement Science and Technology 24.2 (2012): 027001.
@@ -114,23 +114,15 @@ if strcmpi(get(ax,[var,'LimMode']),'manual')
     set(ax,[var,'Lim'],lim)
 end
 
-% transform all lines in this plot
-lines = findobj(ax,'Type','line');
-for ii = 1:length(lines)
-    x = get(lines(ii),[var,'Data']);
-    if ~isempty(lastC) % undo previous transformation
-        x = sign(x).*lastC.*(10.^abs(x)-1);
-    end
-    x = sign(x).*log10(1+abs(x)/C);
-    set(lines(ii),[var,'Data'],x)
-end
+% transform all objects in this plot into logarithmic coordiates
+transform_graph_objects(ax, var, C, lastC);
 
 % transform axes labels to match
 t0 = max(abs(get(ax,[var,'Lim']))); % MATLAB's automatically-chosen limits
 t0 = sign(t0)*C*(10.^(abs(t0))-1);
 t0 = sign(t0).*log10(abs(t0));
 t0 = ceil(log10(C)):ceil(t0); % use C to determine lowest resolution
-t1 = 10.^t0; 
+t1 = 10.^t0;
 
 mt1 = nan(1,8*(length(t1))); % 8 minor ticks between each tick
 for ii = 1:length(t0)
@@ -151,7 +143,7 @@ for ii = 1:length(t0)
     if t1(ii) == 0
         lbl{ii} = '0';
 % uncomment to display +/- 10^0 as +/- 1
-%     elseif t0(ii) == 0 
+%     elseif t0(ii) == 0
 %         if t1(ii) < 0
 %             lbl{ii} = '-1';
 %         else
@@ -169,11 +161,63 @@ set(ax,[var,'Tick'],t1,[var,'TickLabel'],lbl)
 set(ax,[var,'MinorTick'],'on',[var,'MinorGrid'],'on')
 rl = get(ax,[var,'Ruler']);
 try
-	set(rl,'MinorTick',mt1)
+    set(rl,'MinorTick',mt1)
 catch err
-	if strcmp(err.identifier,'MATLAB:datatypes:onoffboolean:IncorrectValue')
-		set(rl,'MinorTickValues',mt1)
-	else
-		rethrow(err)
-	end
+    if strcmp(err.identifier,'MATLAB:datatypes:onoffboolean:IncorrectValue')
+        set(rl,'MinorTickValues',mt1)
+    else
+        rethrow(err)
+    end
+end
+
+
+
+function transform_graph_objects(ax, var, C, lastC)
+% transform all lines in this plot
+lines = findobj(ax,'Type','line');
+for ii = 1:length(lines)
+    x = get(lines(ii),[var,'Data']);
+    if ~isempty(lastC) % undo previous transformation
+        x = sign(x).*lastC.*(10.^abs(x)-1);
+    end
+    x = sign(x).*log10(1+abs(x)/C);
+    set(lines(ii),[var,'Data'],x)
+end
+
+% transform all Patches in this plot
+patches = findobj(ax,'Type','Patch');
+for ii = 1:length(patches)
+    x = get(patches(ii),[var,'Data']);
+    if ~isempty(lastC) % undo previous transformation
+        x = sign(x).*lastC.*(10.^abs(x)-1);
+    end
+    x = sign(x).*log10(1+abs(x)/C);
+    set(patches(ii),[var,'Data'],x)
+end
+
+% transform all Retangles in this plot
+rectangles = findobj(ax,'Type','Rectangle');
+for ii = 1:length(rectangles)
+    q = get(rectangles(ii),'Position');
+    switch var
+        case 'x'
+            x = [q(1) q(1)+q(3)];
+        case 'y'
+            x = [q(2) q(2)+q(4)];
+    end
+    if ~isempty(lastC) % undo previous transformation
+        x = sign(x).*lastC.*(10.^abs(x)-1);
+    end
+    x = sign(x).*log10(1+abs(x)/C);
+
+    switch var
+        case 'x'
+            q(1) = x(1);
+            q(3) = x(2)-x(1);
+        case 'y'
+            q(2) = x(1);
+            q(4) = x(2)-x(1);
+    end
+
+    set(rectangles(ii),'Position',q)
 end
